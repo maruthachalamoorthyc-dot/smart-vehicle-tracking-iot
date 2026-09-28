@@ -7,7 +7,6 @@ Mini Project Report - B.E. Electrical and Electronics Engineering, NPR College o
 (Autonomous Institution, Affiliated to Anna University, Chennai), Natham, Dindigul - 624401
 
 **Team:** Maruthachala Moorthy C (583223105014) | Anwar Khan A (583223105003)
-**Supervisor:** Mr. R. Pandi Prabakaran, M.E., (Ph.D.) | **HOD:** Dr. S. Prakash
 **Date:** May 2026
 
 ---
