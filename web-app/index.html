@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Smart Vehicle Tracking Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; margin:0; background:#0f172a; color:#e2e8f0; }
+  header { padding:14px 20px; background:#1e293b; font-size:1.2rem; font-weight:600; }
+  .panel { display:flex; gap:16px; padding:12px 20px; flex-wrap:wrap; background:#16213a; }
+  .card { background:#1e293b; border-radius:10px; padding:10px 18px; min-width:140px; }
+  .card h4 { margin:0 0 4px; color:#94a3b8; font-size:.75rem; text-transform:uppercase; }
+  .card span { font-size:1.15rem; font-weight:700; color:#38bdf8; }
+  #map { height: 70vh; width:100%; }
+  .config { padding:10px 20px; background:#16213a; display:flex; gap:10px; flex-wrap:wrap; }
+  input { padding:8px; border-radius:6px; border:1px solid #334155; background:#0f172a; color:#e2e8f0; }
+  button { padding:8px 16px; border:none; border-radius:6px; background:#38bdf8; color:#0f172a; font-weight:700; cursor:pointer; }
+</style>
+</head>
+<body>
+<header>🚗 Smart Vehicle Tracking & Route Monitoring</header>
+
+<div class="config">
+  <input id="channelId" placeholder="ThingSpeak Channel ID">
+  <input id="apiKey" placeholder="Read API Key">
+  <button onclick="startTracking()">Start Live Tracking</button>
+</div>
+
+<div class="panel">
+  <div class="card"><h4>Latitude</h4><span id="lat">--</span></div>
+  <div class="card"><h4>Longitude</h4><span id="lng">--</span></div>
+  <div class="card"><h4>Trips Completed</h4><span id="trips">--</span></div>
+  <div class="card"><h4>Status</h4><span id="status">--</span></div>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+let map, marker, path = [];
+const TOLERANCE = 0.0005;
+let startPt = null, endPt = null, startReached = false, tripCount = 0;
+
+function initMap(lat = 10.3523, lng = 77.9800) {
+  map = L.map('map').setView([lat, lng], 15);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
+  marker = L.marker([lat, lng]).addTo(map);
+}
+
+function near(a, b) { return Math.abs(a.lat - b.lat) < TOLERANCE && Math.abs(a.lng - b.lng) < TOLERANCE; }
+
+async function fetchData() {
+  const ch = document.getElementById('channelId').value;
+  const key = document.getElementById('apiKey').value;
+  const url = `https://api.thingspeak.com/channels/${ch}/feeds/last.json?api_key=${key}`;
+  const res = await fetch(url);
+  const feed = await res.json();
+
+  const lat = parseFloat(feed.field1), lng = parseFloat(feed.field2);
+  document.getElementById('lat').textContent = lat.toFixed(6);
+  document.getElementById('lng').textContent = lng.toFixed(6);
+  document.getElementById('status').textContent = feed.field4 || '--';
+
+  marker.setLatLng([lat, lng]);
+  path.push([lat, lng]);
+  L.polyline(path, { color: '#38bdf8' }).addTo(map);
+  map.setView([lat, lng]);
+
+  // Tolerance-based route detection & trip counting
+  const cur = { lat, lng };
+  if (startPt && !startReached && near(cur, startPt)) {
+    startReached = true;
+    alert('🟢 Vehicle reached START point');
+  } else if (endPt && startReached && near(cur, endPt)) {
+    tripCount++;
+    startReached = false;
+    document.getElementById('trips').textContent = tripCount;
+    alert('✅ Trip completed! Count: ' + tripCount);
+  }
+}
+
+function startTracking() {
+  const ch = document.getElementById('channelId').value;
+  const key = document.getElementById('apiKey').value;
+  if (!ch || !key) { alert('Enter Channel ID and Read API Key'); return; }
+
+  // Load last feed to set route start/end (or prompt user)
+  fetch(`https://api.thingspeak.com/channels/${ch}/feeds/last.json?api_key=${key}`)
+    .then(r => r.json()).then(f => initMap(parseFloat(f.field1), parseFloat(f.field2)));
+
+  setInterval(fetchData, 15000);  // refresh every 15 s
+  fetchData();
+}
+
+initMap();
+</script>
+</body>
+</html>
